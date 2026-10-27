@@ -22,7 +22,7 @@ from .utils import log, sep, uid, open_path, open_file
 from .cache import get_cache
 from .element import (
     get_element_handler, get_srt_elements, get_toc_elements, get_page_elements,
-    get_extraction, get_metadata_elements, get_pgn_elements)
+    get_metadata_elements, get_pgn_elements)
 from .translation import get_translator, get_translation
 from .exception import ConversionAbort
 
@@ -57,46 +57,22 @@ def convert_book(
     elements = []
 
     def convert(self, oeb, output_path, input_plugin, opts, log):
-        import gc
         backup_progress = self.report_progress.global_min
         self.report_progress = CompositeProgressReporter(0, 1, notification)
         log.info('Translating ebook content... (this will take a while)')
         log.info(debug_info)
         translation.set_progress(self.report_progress)
 
-        # 1. Translate metadata and TOC
-        pre_elements = []
-        pre_elements.extend(get_metadata_elements(oeb.metadata))
-        pre_elements.extend(get_toc_elements(oeb.toc.nodes, []))
-        if pre_elements:
-            pre_group = element_handler.prepare_original(pre_elements)
-            cache.save(pre_group)
-            pre_ids = [item[0] for item in pre_group]
-            pre_paragraphs = cache.paragraphs_by_ids(pre_ids)
-            if pre_paragraphs:
-                translation.handle(pre_paragraphs)
-                element_handler.add_translations(pre_paragraphs)
-            del pre_elements
-            del pre_group
+        elements.extend(get_metadata_elements(oeb.metadata))
+        # The number of elements may vary with format conversion.
+        elements.extend(get_toc_elements(oeb.toc.nodes, []))
+        elements.extend(get_page_elements(oeb.manifest.items))
+        original_group = element_handler.prepare_original(elements)
+        cache.save(original_group)
 
-        # 2. Translate chapters one by one to keep memory bounded and release immediately
-        extraction = get_extraction(oeb.manifest.items)
-        sorted_pages = extraction.get_sorted_pages()
-        for page in sorted_pages:
-            page_elements = extraction.get_elements_for_page(page)
-            if not page_elements:
-                continue
-            original_group = element_handler.prepare_original(page_elements)
-            cache.save(original_group)
-            page_paragraphs = cache.paragraphs_by_page(page.id)
-            if page_paragraphs:
-                translation.handle(page_paragraphs)
-                element_handler.add_translations(page_paragraphs)
-            # Release references for current chapter immediately
-            del page_elements
-            del original_group
-            del page_paragraphs
-            gc.collect()
+        paragraphs = cache.all_paragraphs()
+        translation.handle(paragraphs)
+        element_handler.add_translations(paragraphs)
 
         log.info(sep())
         log.info(_('Start to convert ebook format...'))
