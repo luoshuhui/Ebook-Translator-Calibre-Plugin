@@ -556,11 +556,16 @@ class Extraction:
                 pages.append(page)
         return sorted(pages, key=lambda page: sorted_mixed_keys(page.href))
 
+    def get_elements_for_page(self, page):
+        body = page.data.find('./x:body', namespaces=ns)
+        elements = self.extract_elements(page.id, body)
+        return list(filter(self.filter_content, elements))
+
     def get_elements(self):
         elements = []
         for page in self.get_sorted_pages():
             body = page.data.find('./x:body', namespaces=ns)
-            elements.extend(self.extract_elements(page.id, body, []))
+            elements.extend(self.extract_elements(page.id, body))
         return filter(self.filter_content, elements)
 
     def is_priority(self, element: etree._Element):
@@ -580,15 +585,21 @@ class Extraction:
         return True
 
     def need_ignore(self, element):
+        # Direct check for pre and code elements without XPath overhead
+        tag_name = get_name(element)
+        if tag_name in ('pre', 'code'):
+            return True
         for pattern in self.ignore_patterns:
             if element.xpath(pattern, namespaces=ns):
                 return True
         return False
 
-    def extract_elements(self, page_id, root, elements=[]):
-        """If the root matches the pattern, return an empty list; otherwise,
-        just break the recursion without doing anything.
+    def extract_elements(self, page_id, root, elements=None):
+        """Extract elements using depth-first search, skipping pre and code
+        and ignored subtrees to avoid redundant slicing or infinite loops.
         """
+        if elements is None:
+            elements = []
         if self.need_ignore(root):
             return []
         for element in root.findall('./*'):
@@ -858,8 +869,10 @@ def get_metadata_elements(metadata):
     return elements
 
 
-def get_toc_elements(nodes, elements=[]):
+def get_toc_elements(nodes, elements=None):
     """Be aware that elements should not overlap with existing data."""
+    if elements is None:
+        elements = []
     for node in nodes:
         elements.append(TocElement(node, 'toc.ncx'))
         if len(node.nodes) > 0:
@@ -867,16 +880,20 @@ def get_toc_elements(nodes, elements=[]):
     return elements
 
 
-def get_page_elements(pages):
+def get_extraction(pages):
     config = get_config()
     priority_rules = config.get('priority_rules')
     rule_mode = config.get('rule_mode')
     filter_scope = config.get('filter_scope')
     filter_rules = config.get('filter_rules', [])
     ignore_rules = config.get('ignore_rules', config.get('element_rules', []))
-    extraction = Extraction(
+    return Extraction(
         pages, priority_rules, rule_mode, filter_scope, filter_rules,
         ignore_rules)
+
+
+def get_page_elements(pages):
+    extraction = get_extraction(pages)
     return extraction.get_elements()
 
 

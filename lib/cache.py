@@ -306,6 +306,32 @@ class TranslationCache:
             paragraphs.append(paragraph)
         return paragraphs
 
+    def paragraphs_by_page(self, page_id):
+        resource = self.cursor.execute(
+            'SELECT * FROM cache WHERE page=? AND NOT ignored', (page_id,))
+        paragraphs = []
+        for item in resource.fetchall():
+            paragraph = Paragraph(*item)
+            if self.cache_only and not paragraph.translation:
+                continue
+            paragraphs.append(paragraph)
+        return paragraphs
+
+    def paragraphs_by_ids(self, ids):
+        if not ids:
+            return []
+        placeholders = ', '.join(['?'] * len(ids))
+        resource = self.cursor.execute(
+            'SELECT * FROM cache WHERE id IN (%s) AND NOT ignored' % placeholders,
+            tuple(ids))
+        paragraphs = []
+        for item in resource.fetchall():
+            paragraph = Paragraph(*item)
+            if self.cache_only and not paragraph.translation:
+                continue
+            paragraphs.append(paragraph)
+        return paragraphs
+
     def update_paragraph(self, paragraph):
         self.update(
             paragraph.id, translation=paragraph.translation,

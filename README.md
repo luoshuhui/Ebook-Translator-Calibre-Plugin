@@ -21,8 +21,10 @@ __Plugin Homepage__: [https://translator.bookfere.com](https://translator.bookfe
 * Support multiple translation engines, including Google Translate, ChatGPT, Gemini, DeepL, etc.
 * Support custom translation engines (you can configure to parse response in JSON or XML format)
 * Support all ebook formats supported by Calibre (48 input formats, 20 output formats), as well as additional formats such as .srt
+* Support chapter-by-chapter streaming translation and immediate memory release for large/complex EPUBs, preventing OOM and freezes
+* Automatically skip `<pre><code>` code blocks and layout tags to prevent redundant slicing
 * Support to translate more than one ebooks. The translation process of each book is carried out simultaneously without affecting one another
-* Support caching translated content, with no need to re-translate after request failure or network interruption
+* Support caching translated content, with no need to re-translate after request failure or network interruption (second-level resume)
 * Provide a large number of customization settings, such as saving translated ebooks to Calibre library or designated location
 
 ---

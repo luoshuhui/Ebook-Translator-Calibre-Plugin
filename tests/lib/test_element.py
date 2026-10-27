@@ -1163,6 +1163,32 @@ class TestExtraction(unittest.TestCase):
         self.assertEqual('Politics', elements[0].get_content())
         self.assertEqual('Business', elements[1].get_content())
 
+    def test_extract_elements_skips_code_pre_tags(self):
+        xhtml = etree.XML(b"""<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head><title>Document</title></head>
+<body>
+    <div>
+        <p>Paragraph 1</p>
+        <pre><code>def foo():\n    return 42\n</code></pre>
+        <code>inline code block</code>
+        <p>Paragraph 2</p>
+    </div>
+</body>
+</html>""")
+        root = xhtml.find('.//x:body', namespaces=ns)
+        elements = self.extraction.extract_elements('test', root)
+        self.assertEqual(4, len(elements))
+        self.assertEqual('p', elements[0].get_name())
+        self.assertFalse(elements[0].ignored)
+        self.assertEqual('pre', elements[1].get_name())
+        self.assertTrue(elements[1].ignored)
+        self.assertEqual('code', elements[2].get_name())
+        self.assertTrue(elements[2].ignored)
+        self.assertEqual('p', elements[3].get_name())
+        self.assertFalse(elements[3].ignored)
+
     def test_filter_content(self):
         def elements(markups):
             return [
